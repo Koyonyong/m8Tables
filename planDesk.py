@@ -113,7 +113,8 @@ def plot_plan_list(plan_list):
 
     plt.axis('equal')
     global pic_id
-    plt.savefig(f"fig/{len(plan_list)}_{pic_id}.png")
+    # plt.savefig(f"fig/{len(plan_list)}_{pic_id}.png")
+    plt.show()
     pic_id += 1
     print(1)
 
@@ -139,7 +140,7 @@ def tryPlan(plan, plan_list, open_list):
 plan_list = []
 open_list = [0, 0]
 def planDesk(plan_list, open_list):
-    # plot_plan_list(plan_list)
+    plot_plan_list(plan_list)
 
     foundFlag = False
     # 尝试三种桌子
@@ -228,6 +229,20 @@ def is_point_in_polygon(point, polygon):
                     # 计算交点的 x 坐标
                     if p1y != p2y:
                         xints = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                    else:
+                        xints = p1x  # 避免除零错误
+
+                    # 检查点是否在边上
+                    if p1x == p2x and x == p1x and min(p1y, p2y) <= y <= max(p1y, p2y):
+                        inside = True
+                        break
+                    elif min(p1x, p2x) <= x <= max(p1x, p2x) and y == p1y:
+                        inside = True
+                        break
+                    elif min(p1x, p2x) <= x <= max(p1x, p2x) and y == p2y:
+                        inside = True
+                        break
+
                     if p1x == p2x or x <= xints:
                         inside = not inside
 
@@ -294,3 +309,5 @@ def update_open_list(open_list, plan):
     return open_list
 
 planDesk([], OPEN_POINTS)
+
+print(is_point_in_polygon([3,3], [[3,1], [3,5], [50, 5]]))
