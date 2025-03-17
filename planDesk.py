@@ -81,12 +81,11 @@ class Plan():
         return middlePoint
 
     def is_same(self, plan):
-        if type(self.desk) == type(plan.desk) and\
-            self.is_up == plan.is_up and\
-            self.point == plan.point and\
-            self.direction == plan.direction:
+        if type(self.desk) == type(plan.desk) and \
+                self.is_up == plan.is_up and \
+                self.point == plan.point and \
+                self.direction == plan.direction:
             return True
-
 
 
 LIMIT_POINTS = [[0 + 775, 0 + 775], [0 + 775, 9500 - 775], [18300 - 775, 9500 - 775],
@@ -159,8 +158,8 @@ def plot_plan_list(plan_list, open_list, final):
     plt.axis('equal')
     global pic_id
     plt.savefig(f"fig/{len(plan_list)}_{pic_id}_{final}.png")
-    #if pic_id == 216:
-        #saveStatus(open_list, plan, plan_list)
+    # if pic_id == 216:
+    # saveStatus(open_list, plan, plan_list)
     if MODE == "TEST":
         plt.show()
 
@@ -184,6 +183,7 @@ def sort_key(plan):
 
     # 返回一个元组，按照优先级排序
     return (desk_type_priority, x, y, is_up_priority)
+
 
 # 根据plan，计算出桌子类型+中心位置（*10的位数）+方向
 def get_plan_set_value(plan):
@@ -210,6 +210,7 @@ def get_plan_list_set_value(plan_list, plan):
     for plan in sorted_plans:
         value += get_plan_set_value(plan)
     return value
+
 
 def tryPlan(plan, plan_list, open_list, plan_set, classic_cnt, middle_cnt, small_cnt):
     refresh = False
@@ -281,7 +282,9 @@ def planDesk(plan_list, open_list, plan_set, classic_cnt, middle_cnt, small_cnt)
         for point in open_list:
             for is_up in [True, False]:
                 for dirction in ["lu", "ld", "ru", "rd"]:
-                    open_list, plan_list, plan_set, refresh = tryPlan(Plan(desk, is_up, point, dirction), plan_list, open_list, plan_set, classic_cnt, middle_cnt, small_cnt)
+                    open_list, plan_list, plan_set, refresh = tryPlan(Plan(desk, is_up, point, dirction), plan_list,
+                                                                      open_list, plan_set, classic_cnt, middle_cnt,
+                                                                      small_cnt)
                     if refresh:
                         foundFlag = True
     if not foundFlag and MODE == "PROD":
@@ -291,6 +294,28 @@ def planDesk(plan_list, open_list, plan_set, classic_cnt, middle_cnt, small_cnt)
             plot_plan_list(plan_list, open_list, "tmp")
         if classic_cnt + middle_cnt + small_cnt > 9:
             plot_plan_list(plan_list, open_list, "FINAL")
+
+
+def is_line_cross_edge(point, next_point, point_list):
+    if point[0] == next_point[0]:
+        n = len(point_list)
+        for i in range(n):
+            edge0 = point_list[i]
+            edge1 = point_list[(i + 1) % n]
+            if edge0[1] == edge1[1]:
+                if min(edge0[0], edge1[0]) < point[0] < max(edge0[0], edge1[0]) and \
+                        min(point[1], next_point[1]) < edge0[1] < max(point[1], next_point[1]):
+                    return False
+    if point[1] == next_point[1]:
+        n = len(point_list)
+        for i in range(n):
+            edge0 = point_list[i]
+            edge1 = point_list[(i + 1) % n]
+            if edge0[0] == edge1[0]:
+                if min(edge0[1], edge1[1]) < point[1] < max(edge0[1], edge1[1]) and \
+                        min(point[0], next_point[0]) < edge0[0] < max(point[0], next_point[0]):
+                    return False
+    return True
 
 
 def is_line_legal(point, next_point, point_list):
@@ -315,8 +340,6 @@ def is_line_legal(point, next_point, point_list):
     return True
 
 
-
-
 # 判断一个plan是否合法，是否可以放在这个地方
 def is_plan_legal(plan, point_list):
     middle_point = copy.deepcopy(plan.middle_point)
@@ -325,22 +348,29 @@ def is_plan_legal(plan, point_list):
     if not is_point_in_polygon(middle_point, point_list):
         return False
     new_points = plan.get_new_points()
+
+    for point in new_points:
+        if not is_point_in_polygon(point, point_list):
+            return False
+    if not is_point_in_polygon(plan.point, point_list):
+        return False
+
     i = 0
     while i < len(new_points) - 1:
         point = new_points[i]
         next_point = new_points[i + 1]
-        if not is_line_legal(point, next_point, point_list):
+        if not is_line_cross_edge(point, next_point, point_list):
             return False
         i += 1
 
     point = new_points[len(new_points) - 1]
     next_point = plan.point
-    if not is_line_legal(point, next_point, point_list):
+    if not is_line_cross_edge(point, next_point, point_list):
         return False
 
     point = new_points[0]
     next_point = plan.point
-    if not is_line_legal(point, next_point, point_list):
+    if not is_line_cross_edge(point, next_point, point_list):
         return False
 
     return True
@@ -439,17 +469,20 @@ def update_open_list(open_list, plan, plan_list):
         print(f"open_list: {open_list}")
 
     for i in range(len(open_list)):
-        if open_list[i][0] != open_list[(i + 1) % len(open_list)][0] and open_list[i][1] != open_list[(i + 1) % len(open_list)][1]:
+        if open_list[i][0] != open_list[(i + 1) % len(open_list)][0] and open_list[i][1] != \
+                open_list[(i + 1) % len(open_list)][1]:
             print("wrong")
             saveStatus(open_list, plan, plan_list)
             exit(0)
 
     return open_list
 
+
 def saveStatus(open_list, plan, plan_list):
     with open("tables.pkl", "wb") as file:
         pickle.dump([open_list, plan, plan_list], file)
         print("对象已序列化到文件")
+
 
 if __name__ == "__main__":
     classic_cnt, middle_cnt, small_cnt = 0, 0, 0
