@@ -163,8 +163,6 @@ def plot_plan_list(plan_list, open_list, final):
         #saveStatus(open_list, plan, plan_list)
     if MODE == "TEST":
         plt.show()
-    pic_id += 1
-    print(1)
 
 
 # 排序键函数
@@ -213,28 +211,40 @@ def get_plan_list_set_value(plan_list, plan):
         value += get_plan_set_value(plan)
     return value
 
-def tryPlan(plan, plan_list, open_list, plan_set):
+def tryPlan(plan, plan_list, open_list, plan_set, classic_cnt, middle_cnt, small_cnt):
     refresh = False
     tmp_open_list = copy.deepcopy(open_list)
     tmp_plan_list = copy.deepcopy(plan_list)
+    tmp_classic_cnt = classic_cnt
+    tmp_middle_cnt = middle_cnt
+    tmp_small_cnt = small_cnt
 
     # 如果这个方案之前过过了
     plan_list_set_value = get_plan_list_set_value(plan_list, plan)
     if plan_list_set_value in plan_set:
-        print("already done this")
+        # print("already done this")
         return open_list, plan_list, plan_set, refresh
 
     for current_plan in plan_list:
         if plan.is_same(current_plan):
             return open_list, plan_list, plan_set, refresh
     if is_plan_legal(plan, open_list):
+        if type(plan.desk) == ClassicDesk:
+            classic_cnt += 1
+        elif type(plan.desk) == MiddleDesk:
+            middle_cnt += 1
+        else:
+            small_cnt += 1
         open_list = update_open_list(open_list, plan, plan_list)
         plan_list.append(plan)
         plan_set.add(plan_list_set_value)
-        planDesk(plan_list, open_list, plan_set)
+        planDesk(plan_list, open_list, plan_set, classic_cnt, middle_cnt, small_cnt)
         refresh = True
     open_list = copy.deepcopy(tmp_open_list)
     plan_list = copy.deepcopy(tmp_plan_list)
+    classic_cnt = tmp_classic_cnt
+    middle_cnt = tmp_middle_cnt
+    small_cnt = tmp_small_cnt
     '''
     if refresh:
         plot_plan_list(plan_list)
@@ -249,7 +259,7 @@ plan_set = set()
 open_list = [0, 0]
 
 
-def planDesk(plan_list, open_list, plan_set):
+def planDesk(plan_list, open_list, plan_set, classic_cnt, middle_cnt, small_cnt):
     if MODE == "TEST":
         plot_plan_list(plan_list, open_list, "notfinal")
 
@@ -260,18 +270,27 @@ def planDesk(plan_list, open_list, plan_set):
             desk = ClassicDesk()
         elif i == 1:
             desk = MiddleDesk()
+            if middle_cnt + small_cnt == 3:
+                return
         else:
             desk = SmallDesk()
+            if middle_cnt + small_cnt == 3:
+                return
 
         # 尝试所有可选点
         for point in open_list:
             for is_up in [True, False]:
                 for dirction in ["lu", "ld", "ru", "rd"]:
-                    open_list, plan_list, plan_set, refresh = tryPlan(Plan(desk, is_up, point, dirction), plan_list, open_list, plan_set)
+                    open_list, plan_list, plan_set, refresh = tryPlan(Plan(desk, is_up, point, dirction), plan_list, open_list, plan_set, classic_cnt, middle_cnt, small_cnt)
                     if refresh:
                         foundFlag = True
     if not foundFlag and MODE == "PROD":
-        plot_plan_list(plan_list, open_list, "FINAL")
+        global pic_id
+        pic_id += 1
+        if pic_id % 50 == 0:
+            plot_plan_list(plan_list, open_list, "tmp")
+        if classic_cnt + middle_cnt + small_cnt > 9:
+            plot_plan_list(plan_list, open_list, "FINAL")
 
 
 def is_line_legal(point, next_point, point_list):
@@ -373,11 +392,9 @@ def is_point_legal(point):
 
 
 def update_open_list(open_list, plan, plan_list):
-    if plan.point == [11095, 4955] and plan.direction == "ru":
-        #plot_plan_list(plan_list, open_list)
-        print(1)
-    print(f"open_list: {open_list}")
-    print(f"plan: {plan.point}, new_points: {plan.get_new_points()}, is_up:{plan.is_up}, {plan.direction}")
+    if MODE == "TEST":
+        print(f"open_list: {open_list}")
+        print(f"plan: {plan.point}, new_points: {plan.get_new_points()}, is_up:{plan.is_up}, {plan.direction}")
     plan_point = plan.point
     plan_point_index = open_list.index(plan_point)
     open_list.pop(plan_point_index)
@@ -418,8 +435,8 @@ def update_open_list(open_list, plan, plan_list):
         if open_list[lastI][1] == open_list[0][1] and open_list[lastI][1] == open_list[lastI - 1][1]:
             open_list.pop(i)
             changeFlag = True
-
-    print(f"open_list: {open_list}")
+    if MODE == "TEST":
+        print(f"open_list: {open_list}")
 
     for i in range(len(open_list)):
         if open_list[i][0] != open_list[(i + 1) % len(open_list)][0] and open_list[i][1] != open_list[(i + 1) % len(open_list)][1]:
@@ -435,6 +452,7 @@ def saveStatus(open_list, plan, plan_list):
         print("对象已序列化到文件")
 
 if __name__ == "__main__":
-    planDesk([], OPEN_POINTS, set())
+    classic_cnt, middle_cnt, small_cnt = 0, 0, 0
+    planDesk([], OPEN_POINTS, set(), classic_cnt, middle_cnt, small_cnt)
 
     print(is_point_in_polygon([3, 3], [[3, 1], [3, 5], [50, 5]]))
