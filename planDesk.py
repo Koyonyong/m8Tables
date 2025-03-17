@@ -201,7 +201,8 @@ def get_plan_set_value(plan):
 
 # 根据plan_list计算出这个状态的set value
 def get_plan_list_set_value(plan_list, plan):
-    tmp_plan_list = copy.deepcopy(plan_list)
+
+    tmp_plan_list = plan_list.copy()
     tmp_plan_list.append(plan)
 
     sorted_plans = sorted(tmp_plan_list, key=sort_key)
@@ -214,22 +215,24 @@ def get_plan_list_set_value(plan_list, plan):
 
 def tryPlan(plan, plan_list, open_list, plan_set, classic_cnt, middle_cnt, small_cnt):
     refresh = False
-    tmp_open_list = copy.deepcopy(open_list)
-    tmp_plan_list = copy.deepcopy(plan_list)
+    tmp_open_list = open_list.copy()
+    tmp_plan_list = plan_list.copy()
     tmp_classic_cnt = classic_cnt
     tmp_middle_cnt = middle_cnt
     tmp_small_cnt = small_cnt
 
-    # 如果这个方案之前过过了
-    plan_list_set_value = get_plan_list_set_value(plan_list, plan)
-    if plan_list_set_value in plan_set:
-        # print("already done this")
-        return open_list, plan_list, plan_set, refresh
+
 
     for current_plan in plan_list:
         if plan.is_same(current_plan):
             return open_list, plan_list, plan_set, refresh
     if is_plan_legal(plan, open_list):
+        # 如果这个方案之前过过了
+        plan_list_set_value = get_plan_list_set_value(plan_list, plan)
+        if plan_list_set_value in plan_set:
+            # print("already done this")
+            return open_list, plan_list, plan_set, refresh
+
         if type(plan.desk) == ClassicDesk:
             classic_cnt += 1
         elif type(plan.desk) == MiddleDesk:
@@ -238,11 +241,11 @@ def tryPlan(plan, plan_list, open_list, plan_set, classic_cnt, middle_cnt, small
             small_cnt += 1
         open_list = update_open_list(open_list, plan, plan_list)
         plan_list.append(plan)
-        plan_set.add(plan_list_set_value)
         planDesk(plan_list, open_list, plan_set, classic_cnt, middle_cnt, small_cnt)
+        plan_set.add(plan_list_set_value)
         refresh = True
-    open_list = copy.deepcopy(tmp_open_list)
-    plan_list = copy.deepcopy(tmp_plan_list)
+    open_list = tmp_open_list.copy()
+    plan_list = tmp_plan_list.copy()
     classic_cnt = tmp_classic_cnt
     middle_cnt = tmp_middle_cnt
     small_cnt = tmp_small_cnt
@@ -263,6 +266,7 @@ open_list = [0, 0]
 def planDesk(plan_list, open_list, plan_set, classic_cnt, middle_cnt, small_cnt):
     if MODE == "TEST":
         plot_plan_list(plan_list, open_list, "notfinal")
+        a=1
 
     foundFlag = False
     # 尝试三种桌子
@@ -272,10 +276,16 @@ def planDesk(plan_list, open_list, plan_set, classic_cnt, middle_cnt, small_cnt)
         elif i == 1:
             desk = MiddleDesk()
             if middle_cnt + small_cnt == 3:
+                if classic_cnt + middle_cnt + small_cnt > 9 and middle_cnt >= 2:
+                    plot_plan_list(plan_list, open_list, "FINAL")
+                    a = 1
                 return
         else:
             desk = SmallDesk()
             if middle_cnt + small_cnt == 3:
+                if classic_cnt + middle_cnt + small_cnt > 9 and middle_cnt >= 2:
+                    plot_plan_list(plan_list, open_list, "FINAL")
+                    a = 1
                 return
 
         # 尝试所有可选点
@@ -290,10 +300,12 @@ def planDesk(plan_list, open_list, plan_set, classic_cnt, middle_cnt, small_cnt)
     if not foundFlag and MODE == "PROD":
         global pic_id
         pic_id += 1
-        if pic_id % 50 == 0:
+        if pic_id % 1000 == 0:
             plot_plan_list(plan_list, open_list, "tmp")
-        if classic_cnt + middle_cnt + small_cnt > 9:
+            a=1
+        if classic_cnt + middle_cnt + small_cnt > 9 and middle_cnt >= 2:
             plot_plan_list(plan_list, open_list, "FINAL")
+            a = 1
 
 
 def is_line_cross_edge(point, next_point, point_list):
@@ -339,39 +351,55 @@ def is_line_legal(point, next_point, point_list):
                     return False
     return True
 
+# 判断没有出现两个矩形重叠一部分
+# |--I-|---I
+def is_edge_inside_edges(edge1, edge2, edge3):
+    # 竖着的边
+    if edge1[0][0] == edge1[1][0]:
+        if (min(edge3[0][1], edge3[1][1]) == min(edge1[0][1], edge1[1][1]) == min(edge2[0][1], edge2[1][1]) and \
+            max(edge3[0][1], edge3[1][1]) == max(edge1[0][1], edge1[1][1]) == max(edge2[0][1], edge2[1][1])):
+            if min(edge1[0][0], edge2[0][0]) < edge3[0][0] < max(edge1[0][0], edge2[0][0]):
+                return True
+
+    # 横着的边
+    if edge1[0][1] == edge1[1][1]:
+        if (min(edge3[0][0], edge3[1][0]) == min(edge1[0][0], edge1[1][0]) == min(edge2[0][0], edge2[1][0]) and \
+                max(edge3[0][0], edge3[1][0]) == max(edge1[0][0], edge1[1][0]) == max(edge2[0][0], edge2[1][0])):
+            if min(edge1[0][1], edge2[0][1]) < edge3[0][1] < max(edge1[0][1], edge2[0][1]):
+                return True
+    return False
 
 # 判断一个plan是否合法，是否可以放在这个地方
 def is_plan_legal(plan, point_list):
-    middle_point = copy.deepcopy(plan.middle_point)
+    middle_point = plan.middle_point.copy()
     middle_point[0] /= 10
     middle_point[1] /= 10
     if not is_point_in_polygon(middle_point, point_list):
         return False
     new_points = plan.get_new_points()
+    new_points.append(plan.point)
 
     for point in new_points:
         if not is_point_in_polygon(point, point_list):
             return False
-    if not is_point_in_polygon(plan.point, point_list):
-        return False
 
-    i = 0
-    while i < len(new_points) - 1:
+    for i in range(4):
         point = new_points[i]
-        next_point = new_points[i + 1]
+        next_point = new_points[(i + 1) % 4]
         if not is_line_cross_edge(point, next_point, point_list):
             return False
-        i += 1
 
-    point = new_points[len(new_points) - 1]
-    next_point = plan.point
-    if not is_line_cross_edge(point, next_point, point_list):
-        return False
+    n = len(point_list)
+    for i in range(n):
+        # 当前边的两个顶点
+        p1 = point_list[i]
+        p2 = point_list[(i + 1) % n]
 
-    point = new_points[0]
-    next_point = plan.point
-    if not is_line_cross_edge(point, next_point, point_list):
-        return False
+        if is_edge_inside_edges([new_points[0], new_points[1]], [new_points[2], new_points[3]], [p1, p2]):
+            return False
+
+        if is_edge_inside_edges([new_points[1], new_points[2]], [new_points[3], new_points[0]], [p1, p2]):
+            return False
 
     return True
 
@@ -468,13 +496,14 @@ def update_open_list(open_list, plan, plan_list):
     if MODE == "TEST":
         print(f"open_list: {open_list}")
 
+    '''
     for i in range(len(open_list)):
         if open_list[i][0] != open_list[(i + 1) % len(open_list)][0] and open_list[i][1] != \
                 open_list[(i + 1) % len(open_list)][1]:
             print("wrong")
             saveStatus(open_list, plan, plan_list)
             exit(0)
-
+    '''
     return open_list
 
 
