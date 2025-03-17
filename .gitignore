@@ -1,1 +1,4 @@
 fig*
+*.pkl
+.idea/*
+ __pycache__*
